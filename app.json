@@ -1,0 +1,66 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 1086420,
+    "appName": "Big Clear",
+    "appType": "watchface",
+    "version": {
+      "code": 1,
+      "name": "1.0.0"
+    },
+    "icon": "preview.png",
+    "vender": "local",
+    "description": "Big stacked time, weather on top, date at the bottom, four corner data points. Declarative widgets only, built for low power."
+  },
+  "permissions": [],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "3.0",
+      "target": "3.0",
+      "minVersion": "3.0"
+    }
+  },
+  "targets": {
+    "f466": {
+      "module": {
+        "watchface": {
+          "path": "watchface/index",
+          "main": 1,
+          "editable": 1
+        }
+      },
+      "platforms": [
+        {
+          "st": "r",
+          "sr": "w466"
+        }
+      ],
+      "designWidth": 466
+    },
+    "f480": {
+      "module": {
+        "watchface": {
+          "path": "watchface/index",
+          "main": 1,
+          "editable": 1
+        }
+      },
+      "platforms": [
+        {
+          "st": "r",
+          "sr": "w480"
+        }
+      ],
+      "designWidth": 480
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "Big Clear"
+    },
+    "zh-CN": {
+      "appName": "Big Clear"
+    }
+  },
+  "defaultLanguage": "en-US"
+}
