@@ -1,4 +1,4 @@
-# Big Clear: Amazfit watch face
+# Big & Clear: Amazfit watch face
 
 Zepp OS 3.0+ round face for 466×466 (GTR 4, Active 2 Round, Cheetah 2 Pro, T-Rex 3 Pro 44) and 480×480 (Balance family, Cheetah Pro). Layout comes from `amazfit-face-round-v2.html`.
 

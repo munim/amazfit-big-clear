@@ -1,4 +1,4 @@
-// Big Clear: Amazfit round face (466 and 480). Declarative widgets only:
+// Big & Clear: Amazfit round face (466 and 480). Declarative widgets only:
 // the OS draws time, date and data. There are no timers and no sensor
 // subscriptions, so nothing in this file runs after build(). The one
 // exception is the step count above 10K, which needs a step-change callback.
