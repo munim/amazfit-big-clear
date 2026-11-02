@@ -12,7 +12,7 @@
     "vender": "local",
     "description": "Big stacked time, weather on top, date at the bottom, four corner data points. Declarative widgets only, built for low power."
   },
-  "permissions": [],
+  "permissions": ["data:user.hd.step"],
   "runtime": {
     "apiVersion": {
       "compatible": "3.0",

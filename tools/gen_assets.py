@@ -44,7 +44,24 @@ WEATHER_MAP = {
 }
 
 STEP_BAR_LEVELS = 20
-BATTERY_LEVELS = 5
+BATTERY_LEVELS = 40  # 2.5% buckets, so the fill can round to the nearest quarter and warn at 20%
+BATTERY_WARN_BELOW = 8  # buckets below 20%
+STEPS_K_FROM = 10000
+
+
+def battery_fill(bucket):
+    """Fill quarter (0, 25, 50, 75, 100) for a 2.5% bucket."""
+    return int((2.5 * bucket + 12.5) // 25) * 25
+
+
+def steps_text(n):
+    """Steps as shown on the face: plain below 10000, then 10.4K (floored, never rounded up)."""
+    if n < STEPS_K_FROM:
+        return str(n)
+    tenths = n // 100
+    if tenths >= 1000:
+        return "%dK" % (tenths // 10)
+    return "%d.%dK" % (tenths // 10, tenths % 10)
 
 
 # ───────────────────────── colour ─────────────────────────
@@ -149,12 +166,14 @@ class Sprite:
 
 
 def text_sprite(text, size, fill, vchars, *, outline=0.0, tracking=0.0, cell_w=None,
-                align="center", pad=1, trailing=0.0):
+                align="center", pad=1, trailing=0.0, bold=0.0, fixed_pad=None):
     """Render `text` with Oxanium outlines. size in px, tracking in px.
     All sprites that pass the same vchars/size/pad share one canvas height and baseline."""
     k = size / FONT.upm
     ymax, ymin = FONT.vrange(vchars)
-    pad = pad + (math.ceil(outline / 2) if outline else 0)
+    pad = pad + (math.ceil(outline / 2) if outline else 0) + (math.ceil(bold / 2) if bold else 0)
+    if fixed_pad is not None:
+        pad = fixed_pad
     h = math.ceil((ymax - ymin) * k + 2 * pad)
     baseline = pad + ymax * k
     x = 0.0
@@ -175,16 +194,26 @@ def text_sprite(text, size, fill, vchars, *, outline=0.0, tracking=0.0, cell_w=N
         if outline:
             body.append('<path d="%s" transform="%s" fill="none" stroke="%s" stroke-width="%.4f" stroke-linejoin="round"/>'
                         % (g["d"], tr, fill, outline / k))
+        elif bold:
+            body.append('<path d="%s" transform="%s" fill="%s" stroke="%s" stroke-width="%.4f" stroke-linejoin="round"/>'
+                        % (g["d"], tr, fill, fill, bold / k))
         else:
             body.append('<path d="%s" transform="%s" fill="%s"/>' % (g["d"], tr, fill))
     return Sprite(svg_png(svg_doc(w, h, "".join(body)), w, h), baseline)
 
 
-def icon_sprite(name, size, color, stroke=1.6):
+def icon_sprite(name, size, color, stroke=1.6, extra=""):
     size = max(1, round(size))
     body = ('<g fill="none" stroke="%s" stroke-width="%s" stroke-linecap="round" stroke-linejoin="round" '
-            'transform="scale(%.5f)">%s</g>' % (color, stroke, size / 24.0, ICON[name]))
+            'transform="scale(%.5f)">%s%s</g>' % (color, stroke, size / 24.0, ICON[name], extra))
     return Sprite(svg_png(svg_doc(size, size, body), size, size), 0)
+
+
+def battery_icon_sprite(size, color, fill):
+    extra = ""
+    if fill:
+        extra = '<rect x="4.3" y="9.3" width="%.2f" height="5.4" rx="0.8" fill="%s" stroke="none"/>' % (12.4 * fill / 100, color)
+    return icon_sprite("battery", size, color, extra=extra)
 
 
 def solid_sprite(w, h, rgba):
@@ -225,12 +254,13 @@ def build(target, W, qualifier):
     tsize = 36 * cq
     tk = tsize / FONT.upm
     cell = math.ceil(FONT.glyph("0")["adv"] * tk)
-    outline_w = max(2.0, 0.45 * cq)
-    t_pad = 1
+    t_stroke = max(3.0, 0.7 * cq)  # extra weight of the solid digits / line width of the outline digits
+    aod_w = max(2.0, 0.45 * cq)
+    t_pad = 1 + math.ceil(t_stroke / 2)  # same canvas and baseline for every time sprite
     for d in digits:
-        put("time/s%s" % d, text_sprite(d, tsize, FG, digits, cell_w=cell, pad=t_pad))
-        put("time/o%s" % d, text_sprite(d, tsize, FG, digits, cell_w=cell, pad=t_pad, outline=outline_w))
-        put("time/a%s" % d, text_sprite(d, tsize, AOD_FG, digits, cell_w=cell, pad=t_pad, outline=outline_w))
+        put("time/s%s" % d, text_sprite(d, tsize, FG, digits, cell_w=cell, bold=t_stroke, fixed_pad=t_pad))
+        put("time/o%s" % d, text_sprite(d, tsize, FG, digits, cell_w=cell, outline=t_stroke, fixed_pad=t_pad))
+        put("time/a%s" % d, text_sprite(d, tsize, AOD_FG, digits, cell_w=cell, outline=aod_w, fixed_pad=t_pad))
     tref = files["time/s0"]
     b1 = W / 2 - 0.13 * tsize
     b2 = b1 + 0.95 * tsize
@@ -270,7 +300,7 @@ def build(target, W, qualifier):
     vsize = 7.2 * cq
     vk = vsize / FONT.upm
     vcell = math.ceil(FONT.glyph("0")["adv"] * vk)
-    vchars = digits + "%-"
+    vchars = digits + "%-K"
     for d in digits:
         put("val/%s" % d, text_sprite(d, vsize, FG, vchars, cell_w=vcell))
         put("val/a%s" % d, text_sprite(d, vsize, AOD_FG, vchars, cell_w=vcell))
@@ -278,13 +308,25 @@ def build(target, W, qualifier):
     put("val/pct", text_sprite("%", vsize, FG, vchars, cell_w=pct_cell))
     put("val/apct", text_sprite("%", vsize, AOD_FG, vchars, cell_w=pct_cell))
     put("val/inv", text_sprite("--", vsize, FG, vchars, tracking=0.04 * vsize))
+    dot_cell = math.ceil(FONT.glyph(".")["adv"] * vk)
+    k_cell = math.ceil(FONT.glyph("K")["adv"] * vk)
+    put("val/dot", text_sprite(".", vsize, FG, vchars, cell_w=dot_cell))
+    put("val/k", text_sprite("K", vsize, FG, vchars, cell_w=k_cell))
     vref = files["val/0"]
 
     isz_c = 7 * cq
-    for name in ("flame", "heart", "steps", "battery"):
+    for name in ("flame", "heart", "steps"):
         put("icon/%s" % name, icon_sprite(name, isz_c, DIM))
-    put("icon/battery_low", icon_sprite("battery", isz_c, WARN))
-    put("icon/battery_aod", icon_sprite("battery", isz_c, AOD_DIM))
+    for fill in (0, 25, 50, 75, 100):
+        put("icon/bat%d" % fill, battery_icon_sprite(isz_c, DIM, fill))
+        put("icon/bata%d" % fill, battery_icon_sprite(isz_c, AOD_DIM, fill))
+        if fill <= 25:
+            put("icon/batw%d" % fill, battery_icon_sprite(isz_c, WARN, fill))
+
+    def battery_name(pct, aod=False):
+        b = min(BATTERY_LEVELS - 1, int(pct * BATTERY_LEVELS / 100))
+        prefix = "bata" if aod else ("batw" if b < BATTERY_WARN_BELOW else "bat")
+        return "icon/%s%d" % (prefix, battery_fill(b))
 
     bar_w = round(14 * cq)
     bar_h = max(3, round(4.5 * s))
@@ -316,6 +358,8 @@ def build(target, W, qualifier):
                       "by": round(top + isz_c + gap_c + line_v + gap_c), "bw": bar_w, "bh": bar_h})
         corners[key] = c
     lay["corner"] = corners
+    lay["stepsK"] = {"cell": vcell, "dot": dot_cell, "k": k_cell, "cx": corners["steps"]["cx"],
+                     "y": corners["steps"]["vy"], "h": vref.h, "from": STEPS_K_FROM}
 
     # ── weather (top) ──
     wsize = 7.5 * cq
@@ -452,11 +496,13 @@ def build(target, W, qualifier):
     # ── weather condition level array is built in JS from names; export the mapping ──
     lay["weatherIcons"] = [WEATHER_MAP[i] for i in range(29)]
     lay["stepBarLevels"] = STEP_BAR_LEVELS
-    lay["batteryLevels"] = BATTERY_LEVELS
+    lay["batteryIcons"] = [battery_name(i * 100 / BATTERY_LEVELS) for i in range(BATTERY_LEVELS)]
+    lay["batteryIconsAod"] = [battery_name(i * 100 / BATTERY_LEVELS, True) for i in range(BATTERY_LEVELS)]
 
     # ── scene simulator (preview + edit previews) ──
     def scene(mode="active", style="solid", wx="full", date=True, corners_on=("cal", "bat", "hr", "steps"),
-              hour24=False):
+              hour24=False, steps=None):
+        steps = SAMPLE["steps"] if steps is None else steps
         canvas = Image.new("RGBA", (W, W), (0, 0, 0, 255))
 
         def paste(name, x, y):
@@ -490,7 +536,7 @@ def build(target, W, qualifier):
             text_img(["date/%sd%s" % (p, c) for c in str(SAMPLE["day"])], d["dx"], d["y"], 0, "left")
         if "bat" in corners_on:
             c = corners["bat"]
-            paste("icon/battery_aod" if aod else "icon/battery", c["ix"], c["iy"])
+            paste(battery_name(SAMPLE["battery"], aod), c["ix"], c["iy"])
             pr = "a" if aod else ""
             text_img(["val/%s%s" % (pr, ch) for ch in str(SAMPLE["battery"])] + ["val/%spct" % pr],
                      c["vx"], c["vy"], c["vw"])
@@ -506,14 +552,16 @@ def build(target, W, qualifier):
                 paste("wx/down", w_["dix"], w_["diy"])
                 text_img(["wx/h%s" % ch for ch in str(SAMPLE["low"])], w_["dx"], w_["dy"], 0, "left")
         for key, icon, val in (("cal", "flame", SAMPLE["kcal"]), ("hr", "heart", SAMPLE["hr"]),
-                               ("steps", "steps", SAMPLE["steps"])):
+                               ("steps", "steps", steps)):
             if key not in corners_on:
                 continue
             c = corners[key]
             paste("icon/%s" % icon, c["ix"], c["iy"])
-            text_img(["val/%s" % ch for ch in str(val)], c["vx"], c["vy"], c["vw"])
+            glyph = {".": "dot", "K": "k"}
+            text_img(["val/%s" % glyph.get(ch, ch) for ch in (steps_text(val) if key == "steps" else str(val))],
+                     c["vx"], c["vy"], c["vw"])
             if key == "steps":
-                lvl = round(min(1, SAMPLE["steps"] / SAMPLE["goal"]) * (STEP_BAR_LEVELS - 1))
+                lvl = round(min(1, steps / SAMPLE["goal"]) * (STEP_BAR_LEVELS - 1))
                 paste("bar/%d" % lvl, c["bx"], c["by"])
         if "bat" in corners_on:
             pass
@@ -563,6 +611,7 @@ def build(target, W, qualifier):
     circular(scene(mode="aod", style="outline")).save(docs / ("preview-aod-%d.png" % W))
     circular(scene(mode="dnd")).save(docs / ("preview-sleep-%d.png" % W))
     circular(scene(mode="active", style="outline", hour24=True)).save(docs / ("preview-outline-24h-%d.png" % W))
+    circular(scene(mode="active", steps=10473)).save(docs / ("preview-steps-10k-%d.png" % W))
 
     # layout module consumed by watchface/index.js via zosLoader
     lay_path = ROOT / "watchface" / ("index.%s.layout.js" % qualifier)

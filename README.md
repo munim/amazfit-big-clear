@@ -4,7 +4,7 @@ Zepp OS 3.0+ round face for 466×466 (GTR 4, Active 2 Round, Cheetah 2 Pro, T-Re
 
 ## Low-power design
 
-- Declarative widgets only (`IMG_TIME`, `IMG_DATE`, `IMG_WEEK`, `TEXT_IMG`, `IMG_LEVEL`, `IMG_STATUS`). The OS redraws them. The face has no `setInterval`, `setTimeout` or sensor subscription, so no JS runs after `build()`.
+- Declarative widgets only (`IMG_TIME`, `IMG_DATE`, `IMG_WEEK`, `TEXT_IMG`, `IMG_LEVEL`, `IMG_STATUS`). The OS redraws them. The face has no `setInterval` or `setTimeout`. The only JS after `build()` is a step-change callback that swaps the step text to `10.4K` style at 10,000 steps and above (floored, so it never reads high).
 - Heart rate, steps, calories, battery and weather use `data_type` bindings. The face never starts its own sampling.
 - Pure black ground. Oxanium glyphs are pre-rendered to PNG sprites, so there is no font engine at runtime.
 - **Always-on display:** dim outline time, date and battery only. No weather, calorie, heart rate or steps. No burn-in shift, because that would need a JS wake-up each minute.
@@ -12,7 +12,7 @@ Zepp OS 3.0+ round face for 466×466 (GTR 4, Active 2 Round, Cheetah 2 Pro, T-Re
 
 ## Features kept
 
-Stacked hour/minute time, AM/PM tag, weather icon + temperature + high/low, date, calorie, battery (icon turns amber below 20%), heart rate, steps with a goal bar.
+Stacked hour/minute time, AM/PM tag, weather icon + temperature + high/low, date, calorie, battery (icon fills to the nearest quarter: 100/75/50/25/0%, amber below 20%; the number stays exact), heart rate, steps with a goal bar.
 
 ## On-watch options (long-press → Edit)
 
@@ -33,7 +33,8 @@ Previews rendered by the generator are in `docs/`. Oxanium is under the SIL OFL 
 No simulator or watch was available. Only `zeus build` and the generator's own preview renders were checked. Test on a device before trusting these:
 
 - Weather icon mapping uses the Zepp condition ids 0-28 (`WEATHER_MAP` in the generator).
-- The battery amber icon assumes level 0 covers the lowest bucket (5 levels, 0-20%).
+- The battery icon assumes `IMG_LEVEL` picks image `floor(percent × 40 / 100)` (40 buckets of 2.5%). If the OS rounds differently, the fill can be one quarter off near the thresholds.
+- The 10K+ step text assumes `IMG` widgets accept `setProperty(prop.MORE, { src, x, w, h })` and that the `Step` sensor needs the `data:user.hd.step` permission (added to `app.json`).
 - The Do Not Disturb overlay depends on the watch enabling DND during sleep mode.
 - The step goal bar assumes `IMG_LEVEL` with `type: STEP` scales to the step goal.
 - Edit-mode titles for the custom options are English, Simplified and Traditional Chinese only.

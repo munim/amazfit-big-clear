@@ -1,7 +1,9 @@
 // Big Clear: Amazfit round face (466 and 480). Declarative widgets only:
 // the OS draws time, date and data. There are no timers and no sensor
-// subscriptions, so nothing in this file runs after build().
+// subscriptions, so nothing in this file runs after build(). The one
+// exception is the step count above 10K, which needs a step-change callback.
 import ui from '@zos/ui'
+import { Step } from '@zos/sensor'
 import { layout as L } from 'zosLoader:./[name].[pf].layout.js'
 
 const SL = ui.show_level
@@ -76,11 +78,11 @@ function dndMask(name, x, y) {
 }
 
 function textImg(props) {
-  ui.createWidget(W.TEXT_IMG, Object.assign({ h_space: 0, show_level: NORMAL }, props))
+  return ui.createWidget(W.TEXT_IMG, Object.assign({ h_space: 0, show_level: NORMAL }, props))
 }
 
 function valueText(c, type, extra) {
-  textImg(
+  return textImg(
     Object.assign(
       { x: c.vx, y: c.vy, w: c.vw, h: c.vh, font_array: seq('val/', 10), align_h: A.CENTER_H, type },
       extra
@@ -209,10 +211,58 @@ function drawHeart() {
   valueText(c, DT.HEART, { invalid_image: img('val/inv') })
 }
 
+// 10473 -> ['1','0','dot','4','k']. Floored, so it never reads higher than the real count.
+function stepGlyphs(n) {
+  const tenths = Math.floor(n / 100)
+  const text = tenths >= 1000 ? Math.floor(tenths / 10) + 'K' : Math.floor(tenths / 10) + '.' + (tenths % 10) + 'K'
+  return text.split('').map((ch) => (ch === '.' ? 'dot' : ch === 'K' ? 'k' : ch))
+}
+
+// Below 10K the OS draws the count by itself. From 10K up, the native text hides
+// and a few IMG widgets show "10.4K", updated only when the step count changes.
+function drawStepsK(native) {
+  const K = L.stepsK
+  const slots = []
+  for (let i = 0; i < 5; i++) {
+    const w = ui.createWidget(W.IMG, { x: 0, y: K.y, src: img('val/k'), show_level: NORMAL })
+    w.setProperty(ui.prop.VISIBLE, false)
+    slots.push(w)
+  }
+  const width = (g) => (g === 'dot' ? K.dot : g === 'k' ? K.k : K.cell)
+  const step = new Step()
+  let shown = -1
+  const update = () => {
+    const n = step.getCurrent()
+    console.log('steps ' + n)
+    const big = n >= K.from
+    const key = big ? Math.floor(n / 100) : 0
+    if (key === shown) return
+    shown = key
+    native.setProperty(ui.prop.VISIBLE, !big)
+    const glyphs = big ? stepGlyphs(n) : []
+    let x = Math.round(K.cx - glyphs.reduce((sum, g) => sum + width(g), 0) / 2)
+    slots.forEach((w, i) => {
+      const g = glyphs[i]
+      if (g) {
+        w.setProperty(ui.prop.MORE, { x, y: K.y, w: width(g), h: K.h, src: img('val/' + g) })
+        x += width(g)
+      }
+      w.setProperty(ui.prop.VISIBLE, !!g)
+    })
+  }
+  update()
+  step.onChange(update)
+  ui.createWidget(W.WIDGET_DELEGATE, { resume_call: update })
+  return () => step.offChange(update)
+}
+
+let stopSteps = null
+
 function drawSteps() {
   const c = L.corner.steps
   ui.createWidget(W.IMG, { x: c.ix, y: c.iy, src: img('icon/steps'), show_level: NORMAL })
-  valueText(c, DT.STEP)
+  const native = valueText(c, DT.STEP)
+  stopSteps = drawStepsK(native)
   ui.createWidget(W.IMG_LEVEL, {
     x: c.bx,
     y: c.by,
@@ -226,8 +276,7 @@ function drawSteps() {
 function drawBattery() {
   const c = L.corner.bat
   const pct = img('val/pct')
-  const icons = [img('icon/battery_low')]
-  for (let i = 1; i < L.batteryLevels; i++) icons.push(img('icon/battery'))
+  const icons = L.batteryIcons.map(img)
   ui.createWidget(W.IMG_LEVEL, {
     x: c.ix,
     y: c.iy,
@@ -242,7 +291,15 @@ function drawBattery() {
 function drawBatteryAod() {
   const c = L.corner.bat
   const pct = img('val/apct')
-  ui.createWidget(W.IMG, { x: c.ix, y: c.iy, src: img('icon/battery_aod'), show_level: AOD })
+  const icons = L.batteryIconsAod.map(img)
+  ui.createWidget(W.IMG_LEVEL, {
+    x: c.ix,
+    y: c.iy,
+    image_array: icons,
+    image_length: icons.length,
+    type: DT.BATTERY,
+    show_level: AOD,
+  })
   ui.createWidget(W.TEXT_IMG, {
     x: c.vx,
     y: c.vy,
@@ -351,5 +408,10 @@ WatchFace({
       src: img('edit/mask70'),
       show_level: SL.ONLY_EDIT,
     })
+  },
+
+  onDestroy() {
+    if (stopSteps) stopSteps()
+    stopSteps = null
   },
 })
