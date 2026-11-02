@@ -128,7 +128,8 @@ function drawDate(aod) {
   const level = aod ? AOD : NORMAL
   const weeks = seq(p + 'wk', 7)
   const months = seq(p + 'mo', 12)
-  const nums = seq(p + 'd', 10)
+  const days = []
+  for (let i = 1; i <= 31; i++) days.push(img(p + 'day' + i))
   ui.createWidget(W.IMG_WEEK, {
     x: d.wx,
     y: d.y,
@@ -146,13 +147,16 @@ function drawDate(aod) {
     month_tc_array: months,
     month_align: A.LEFT,
     month_follow: 0,
-    day_follow: 1,
+    day_startX: d.dx,
+    day_startY: d.y,
+    day_is_character: true,
+    day_follow: 0,
     day_zero: 0,
     day_space: 0,
     day_align: A.LEFT,
-    day_en_array: nums,
-    day_sc_array: nums,
-    day_tc_array: nums,
+    day_en_array: days,
+    day_sc_array: days,
+    day_tc_array: days,
     show_level: level,
   })
 }

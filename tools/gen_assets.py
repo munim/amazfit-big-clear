@@ -428,7 +428,8 @@ def build(target, W, qualifier):
         return sum(FONT.glyph(c)["adv"] * dk + dtrack for c in word)
 
     wk_cell = math.ceil(max(word_w(w_) for w_ in WEEKDAYS)) + gap_d
-    mo_cell = math.ceil(max(word_w(m_) for m_ in MONTHS)) + gap_d
+    mo_cell = math.ceil(max(word_w(m_) for m_ in MONTHS))
+    day_cell = 2 * dcell
     for tag, color in (("", FG), ("a", AOD_FG)):
         for i, wname in enumerate(WEEKDAYS):
             put("date/%swk%d" % (tag, i), text_sprite(wname, dsize, color, dchars, tracking=dtrack,
@@ -436,16 +437,16 @@ def build(target, W, qualifier):
         for i, mname in enumerate(MONTHS):
             put("date/%smo%d" % (tag, i), text_sprite(mname, dsize, color, dchars, tracking=dtrack,
                                                     cell_w=mo_cell, align="left"))
-        for d in digits:
-            put("date/%sd%s" % (tag, d), text_sprite(d, dsize, color, dchars, tracking=dtrack, cell_w=dcell,
-                                                    align="left"))
+        for n in range(1, 32):
+            put("date/%sday%d" % (tag, n), text_sprite(str(n), dsize, color, dchars, tracking=dtrack,
+                                                      cell_w=day_cell, align="center"))
     dref = files["date/wk0"]
     d_top = W / 2 + 40 * cq - 0.6 * dsize
     d_base = d_top + 0.89 * dsize
-    d_total = wk_cell + mo_cell + 2 * dcell
+    d_total = wk_cell + day_cell + gap_d + mo_cell
     dx0 = W / 2 - d_total / 2
     dy = round(d_base - dref.baseline)
-    lay["date"] = {"wx": round(dx0), "mx": round(dx0 + wk_cell), "dx": round(dx0 + wk_cell + mo_cell),
+    lay["date"] = {"wx": round(dx0), "dx": round(dx0 + wk_cell), "mx": round(dx0 + wk_cell + day_cell + gap_d),
                    "y": dy, "h": dref.h, "w": d_total}
 
     # ── masks for Do Not Disturb / sleep ──
@@ -532,8 +533,8 @@ def build(target, W, qualifier):
             d = lay["date"]
             p = "a" if aod else ""
             paste("date/%swk%d" % (p, SAMPLE["weekday"]), d["wx"], d["y"])
+            paste("date/%sday%d" % (p, SAMPLE["day"]), d["dx"], d["y"])
             paste("date/%smo%d" % (p, SAMPLE["month"]), d["mx"], d["y"])
-            text_img(["date/%sd%s" % (p, c) for c in str(SAMPLE["day"])], d["dx"], d["y"], 0, "left")
         if "bat" in corners_on:
             c = corners["bat"]
             paste(battery_name(SAMPLE["battery"], aod), c["ix"], c["iy"])
