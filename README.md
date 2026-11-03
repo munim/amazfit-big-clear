@@ -4,25 +4,44 @@
   <img src="docs/marketing-features-350.gif" alt="Big & Clear watch face features: active, outline, 10K steps, sleep and always-on display" width="350">
 </p>
 
-Zepp OS 3.0+ round face for 466×466 (GTR 4, Active 2 Round, Cheetah 2 Pro, T-Rex 3 Pro 44) and 480×480 (Balance family, Cheetah Pro). Layout comes from `amazfit-face-round-v2.html`.
+**Glance at your wrist. Read the time from across the room. Watch the battery barely move.**
 
-## Low-power design
+Big & Clear is a round face for Zepp OS 3.0+:
 
-- Declarative widgets only (`IMG_TIME`, `IMG_DATE`, `IMG_WEEK`, `TEXT_IMG`, `IMG_LEVEL`, `IMG_STATUS`). The OS redraws them. The face has no `setInterval` or `setTimeout`. The only JS after `build()` is a step-change callback that swaps the step text to `10.4K` style at 10,000 steps and above (floored, so it never reads high).
-- Heart rate, steps, calories, battery and weather use `data_type` bindings. The face never starts its own sampling.
-- Pure black ground. Oxanium glyphs are pre-rendered to PNG sprites, so there is no font engine at runtime.
-- **Always-on display:** dim outline time, date and battery only. No weather, calorie, heart rate or steps. No burn-in shift, because that would need a JS wake-up each minute.
-- **Sleep:** Zepp enables Do Not Disturb in sleep mode. Black `IMG_STATUS` (DISTURB) overlays hide every data slot and dim the time to about 70%.
+- **466×466:** GTR 4, Active 2 Round, Cheetah 2 Pro, T-Rex 3 Pro 44
+- **480×480:** Balance family, Cheetah Pro
 
-## Features kept
+The layout comes from `amazfit-face-round-v2.html`.
 
-Stacked hour/minute time, AM/PM tag, weather icon + temperature + high/low, date, calorie, battery (icon fills to the nearest quarter: 100/75/50/25/0%, amber below 20%; the number stays exact), heart rate, steps with a goal bar.
+## Why the battery lasts
 
-## On-watch options (long-press → Edit)
+- **No timers.** The face uses OS-redrawn widgets only. It has no `setInterval` or `setTimeout`.
+- **One callback.** After `build()`, the only JS switches steps to a `10.4K` style at 10,000+. The value rounds down, so it never reads high.
+- **The OS does the sensing.** Heart rate, steps, calories, battery, and weather use `data_type` bindings. The face never starts its own sampling.
+- **No font engine.** The background is pure black, and Oxanium glyphs ship as pre-rendered PNG sprites.
+- **Always-on display:** Dim outline time, date, and battery. Weather, calories, heart rate, and steps stay hidden. No burn-in shift, since that would need a wake-up each minute.
+- **Sleep:** Zepp turns on Do Not Disturb. Black `IMG_STATUS` (DISTURB) overlays hide every data slot and dim the time to about 70%.
 
-Time style (solid/outline), weather (with high/low, temperature only, off), date, calorie, battery, heart rate and steps (each on/off). 12/24-hour follows the system setting.
+## What you see
 
-## Build
+- Stacked hour and minute time, with AM/PM tag
+- Weather icon, temperature, and high/low
+- Date, calories, battery, heart rate
+- Steps with a goal bar
+
+The battery icon fills to the nearest quarter (100, 75, 50, 25, or 0%) and turns amber below 20%. The number always shows the exact value.
+
+## Make it yours
+
+Long-press the face, then select **Edit**:
+
+- **Time style:** solid or outline
+- **Weather:** with high/low, temperature only, or off
+- **Date, calories, battery, heart rate, steps:** on or off, one at a time
+
+The time format follows your phone's system setting.
+
+## Build it
 
 ```
 python3 tools/gen_assets.py   # regenerate sprites + layouts (needs fonttools, Pillow, numpy, librsvg)
@@ -30,15 +49,17 @@ zeus build                    # writes dist/*.zab
 zeus preview                  # or install through the Zepp app in developer mode
 ```
 
-Previews rendered by the generator are in `docs/`. Oxanium is under the SIL OFL (`tools/fonts/OFL-Oxanium.txt`).
+Previews land in `docs/`. Oxanium is under the SIL OFL (`tools/fonts/OFL-Oxanium.txt`).
 
-## Not verified
+## Help verify it
 
-No simulator or watch was available. Only `zeus build` and the generator's own preview renders were checked. Test on a device before trusting these:
+No simulator or watch was available, so only `zeus build` and the preview renders were checked. Test these on a device:
 
-- Weather icon mapping uses the Zepp condition ids 0-28 (`WEATHER_MAP` in the generator).
-- The battery icon assumes `IMG_LEVEL` picks image `floor(percent × 40 / 100)` (40 buckets of 2.5%). If the OS rounds differently, the fill can be one quarter off near the thresholds.
-- The 10K+ step text assumes `IMG` widgets accept `setProperty(prop.MORE, { src, x, w, h })` and that the `Step` sensor needs the `data:user.hd.step` permission (added to `app.json`).
-- The Do Not Disturb overlay depends on the watch enabling DND during sleep mode.
-- The step goal bar assumes `IMG_LEVEL` with `type: STEP` scales to the step goal.
-- Edit-mode titles for the custom options are English, Simplified and Traditional Chinese only.
+- **Weather icons:** The mapping uses Zepp condition IDs 0-28 (`WEATHER_MAP` in the generator).
+- **Battery fill:** `IMG_LEVEL` must pick image `floor(percent × 40 / 100)`. If the OS rounds differently, the fill can be off by a quarter near thresholds.
+- **10K+ steps:** `IMG` widgets must accept `setProperty(prop.MORE, { src, x, w, h })`. The `Step` sensor also needs `data:user.hd.step`, which `app.json` already declares.
+- **Do Not Disturb:** The overlay works only if your watch enables DND during sleep.
+- **Step goal bar:** `IMG_LEVEL` with `type: STEP` must scale to your goal.
+- **Titles:** Edit-mode option titles exist only in English, Simplified Chinese, and Traditional Chinese.
+
+**Install it, then break it.** Open an issue with your watch model and the test that failed. One real-device result beats any amount of review.
