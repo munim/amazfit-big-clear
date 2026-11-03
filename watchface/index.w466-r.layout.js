@@ -6,15 +6,11 @@ export const layout = {
   "hy": 92,
   "mx": 136,
   "my": 252,
-  "cell": 97,
   "ax": 336,
-  "ay": 205,
-  "aw": 35,
-  "ah": 56
+  "ay": 205
  },
  "corner": {
   "cal": {
-   "cx": 79,
    "ix": 63,
    "iy": 118,
    "vx": 19,
@@ -23,7 +19,6 @@ export const layout = {
    "vh": 26
   },
   "bat": {
-   "cx": 387,
    "ix": 370,
    "iy": 118,
    "vx": 327,
@@ -32,7 +27,6 @@ export const layout = {
    "vh": 26
   },
   "hr": {
-   "cx": 79,
    "ix": 63,
    "iy": 276,
    "vx": 19,
@@ -41,7 +35,6 @@ export const layout = {
    "vh": 26
   },
   "steps": {
-   "cx": 387,
    "ix": 370,
    "iy": 273,
    "vx": 327,
@@ -49,19 +42,8 @@ export const layout = {
    "vw": 120,
    "vh": 26,
    "bx": 354,
-   "by": 348,
-   "bw": 65,
-   "bh": 4
+   "by": 348
   }
- },
- "stepsK": {
-  "cell": 20,
-  "dot": 9,
-  "k": 22,
-  "cx": 387,
-  "y": 312,
-  "h": 26,
-  "from": 10000
  },
  "wx": {
   "ix": 188,
@@ -87,9 +69,7 @@ export const layout = {
   "wx": 138,
   "dx": 216,
   "mx": 264,
-  "y": 405,
-  "h": 31,
-  "w": 189
+  "y": 405
  },
  "groups": {
   "time": {
@@ -99,8 +79,7 @@ export const layout = {
    "h": 291,
    "id": 101,
    "tx": 37,
-   "ty": 297,
-   "name": "time"
+   "ty": 297
   },
   "wx": {
    "x": 154,
@@ -109,8 +88,7 @@ export const layout = {
    "h": 65,
    "id": 102,
    "tx": 19,
-   "ty": 71,
-   "name": "wx"
+   "ty": 71
   },
   "date": {
    "x": 130,
@@ -119,8 +97,7 @@ export const layout = {
    "h": 44,
    "id": 103,
    "tx": 42,
-   "ty": -37,
-   "name": "date"
+   "ty": -37
   },
   "cal": {
    "x": 35,
@@ -129,8 +106,7 @@ export const layout = {
    "h": 93,
    "id": 104,
    "tx": -14,
-   "ty": 99,
-   "name": "cal"
+   "ty": 99
   },
   "bat": {
    "x": 338,
@@ -139,8 +115,7 @@ export const layout = {
    "h": 93,
    "id": 105,
    "tx": -14,
-   "ty": 99,
-   "name": "bat"
+   "ty": 99
   },
   "hr": {
    "x": 35,
@@ -149,8 +124,7 @@ export const layout = {
    "h": 93,
    "id": 106,
    "tx": -14,
-   "ty": -37,
-   "name": "hr"
+   "ty": -37
   },
   "steps": {
    "x": 338,
@@ -159,131 +133,12 @@ export const layout = {
    "h": 93,
    "id": 107,
    "tx": -14,
-   "ty": -37,
-   "name": "steps"
+   "ty": -37
   }
  },
  "tipW": 120,
  "ampmMask": {
   "x": 336,
-  "y": 205,
-  "w": 35,
-  "h": 56
- },
- "weatherIcons": [
-  "partly",
-  "rain",
-  "snow",
-  "sun",
-  "cloud",
-  "rain",
-  "snow",
-  "rain",
-  "snow",
-  "snow",
-  "rain",
-  "fog",
-  "snow",
-  "fog",
-  "fog",
-  "storm",
-  "snow",
-  "fog",
-  "rain",
-  "rain",
-  "storm",
-  "rain",
-  "fog",
-  "fog",
-  "rain",
-  "cloud",
-  "partly",
-  "rain",
-  "moon"
- ],
- "stepBarLevels": 20,
- "batteryIcons": [
-  "icon/batw0",
-  "icon/batw0",
-  "icon/batw0",
-  "icon/batw0",
-  "icon/batw0",
-  "icon/batw25",
-  "icon/batw25",
-  "icon/batw25",
-  "icon/bat25",
-  "icon/bat25",
-  "icon/bat25",
-  "icon/bat25",
-  "icon/bat25",
-  "icon/bat25",
-  "icon/bat25",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat50",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat75",
-  "icon/bat100",
-  "icon/bat100",
-  "icon/bat100",
-  "icon/bat100",
-  "icon/bat100"
- ],
- "batteryIconsAod": [
-  "icon/bata0",
-  "icon/bata0",
-  "icon/bata0",
-  "icon/bata0",
-  "icon/bata0",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata25",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata50",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata75",
-  "icon/bata100",
-  "icon/bata100",
-  "icon/bata100",
-  "icon/bata100",
-  "icon/bata100"
- ]
+  "y": 205
+ }
 }

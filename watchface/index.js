@@ -22,33 +22,48 @@ const WX_FULL = 100004
 const WX_TEMP = 100005
 const DATE_ON = 100006
 
+const STEP_BAR_LEVELS = 20
+const WEATHER_ICONS = [
+  'partly', 'rain', 'snow', 'sun', 'cloud', 'rain', 'snow', 'rain', 'snow', 'snow',
+  'rain', 'fog', 'snow', 'fog', 'fog', 'storm', 'snow', 'fog', 'rain', 'rain',
+  'storm', 'rain', 'fog', 'fog', 'rain', 'cloud', 'partly', 'rain', 'moon',
+]
+const BAT_SPEC = ['batw0', 5, 'batw25', 3, 'bat25', 7, 'bat50', 10, 'bat75', 10, 'bat100', 5]
+const BAT_AOD_SPEC = ['bata0', 1, 'bata25', 2, 'bata50', 2, 'bata75', 2, 'bata100', 1]
+
 const img = (name) => 'images/' + name + '.png'
 const seq = (prefix, n) => {
   const list = []
   for (let i = 0; i < n; i++) list.push(img(prefix + i))
   return list
 }
-const all3 = (key, value) => {
-  const o = {}
-  o[key + '_en'] = value
-  o[key + '_sc'] = value
-  o[key + '_tc'] = value
-  return o
+const repeatIcons = (spec) => {
+  const list = []
+  for (let i = 0; i < spec.length; i += 2) {
+    const path = img('icon/' + spec[i])
+    for (let j = 0; j < spec[i + 1]; j++) list.push(path)
+  }
+  return list
 }
+
+let valFont = null
+const getValFont = () => valFont || (valFont = seq('val/', 10))
 
 function editGroup(name, defType, options) {
   const g = L.groups[name]
+  const box = L.corner[name] ? 'corner' : name
   const group = ui.createWidget(W.WATCHFACE_EDIT_GROUP, {
     edit_id: g.id,
     x: g.x,
     y: g.y,
     w: g.w,
     h: g.h,
-    select_image: img('edit/sel_' + name),
-    un_select_image: img('edit/un_' + name),
+    select_image: img('edit/sel_' + box),
+    un_select_image: img('edit/un_' + box),
     default_type: defType,
     optional_types: options.map((o) => {
-      const t = { type: o.type, preview: img('edit/pv_' + name + '_' + o.key) }
+      const pv = o.type === OFF ? box : name
+      const t = { type: o.type, preview: img('edit/pv_' + pv + '_' + o.key) }
       if (o.en) {
         t.title_en = o.en
         t.title_sc = o.sc
@@ -72,7 +87,7 @@ function dndMask(name, x, y) {
     x,
     y,
     type: ui.system_status.DISTURB,
-    src: img('mask/' + name),
+    src: img('mask/' + (L.corner[name] ? 'corner' : name)),
     show_level: NORMAL,
   })
 }
@@ -82,43 +97,41 @@ function textImg(props) {
 }
 
 function valueText(c, type, extra) {
-  return textImg(
-    Object.assign(
-      { x: c.vx, y: c.vy, w: c.vw, h: c.vh, font_array: seq('val/', 10), align_h: A.CENTER_H, type },
-      extra
-    )
-  )
+  const base = { x: c.vx, y: c.vy, w: c.vw, h: c.vh, font_array: getValFont(), align_h: A.CENTER_H }
+  if (type !== undefined) base.type = type
+  return textImg(Object.assign(base, extra))
 }
 
-function drawTime(style) {
+function drawTime(style, aod) {
   const t = L.time
-  const solid = style === SOLID
-  const prefix = 'time/' + (solid ? 's' : 'o')
+  const digits = seq('time/' + (aod ? 'a' : style === SOLID ? 's' : 'o'), 10)
+  const am = img('time/am')
+  const pm = img('time/pm')
   ui.createWidget(W.IMG_TIME, {
     hour_startX: t.hx,
     hour_startY: t.hy,
-    hour_array: seq(prefix, 10),
+    hour_array: digits,
     hour_zero: 1,
     hour_space: 0,
     hour_align: A.LEFT,
     minute_startX: t.mx,
     minute_startY: t.my,
-    minute_array: seq(prefix, 10),
+    minute_array: digits,
     minute_zero: 1,
     minute_space: 0,
     minute_align: A.LEFT,
     minute_follow: 0,
     am_x: t.ax,
     am_y: t.ay,
-    am_en_path: img('time/am'),
-    am_sc_path: img('time/am'),
-    am_tc_path: img('time/am'),
+    am_en_path: am,
+    am_sc_path: am,
+    am_tc_path: am,
     pm_x: t.ax,
     pm_y: t.ay,
-    pm_en_path: img('time/pm'),
-    pm_sc_path: img('time/pm'),
-    pm_tc_path: img('time/pm'),
-    show_level: NORMAL,
+    pm_en_path: pm,
+    pm_sc_path: pm,
+    pm_tc_path: pm,
+    show_level: aod ? AOD : NORMAL,
   })
 }
 
@@ -163,7 +176,7 @@ function drawDate(aod) {
 
 function drawWeather(full) {
   const w = L.wx
-  const icons = L.weatherIcons.map((n) => img('wx/i_' + n))
+  const icons = WEATHER_ICONS.map((n) => img('wx/i_' + n))
   ui.createWidget(W.IMG_LEVEL, {
     x: w.ix,
     y: w.iy,
@@ -215,44 +228,34 @@ function drawHeart() {
   valueText(c, DT.HEART, { invalid_image: img('val/inv') })
 }
 
-// 10473 -> ['1','0','dot','4','k']. Floored, so it never reads higher than the real count.
-function stepGlyphs(n) {
-  const tenths = Math.floor(n / 100)
-  const text = tenths >= 1000 ? Math.floor(tenths / 10) + 'K' : Math.floor(tenths / 10) + '.' + (tenths % 10) + 'K'
-  return text.split('').map((ch) => (ch === '.' ? 'dot' : ch === 'K' ? 'k' : ch))
-}
-
 // Below 10K the OS draws the count by itself. From 10K up, the native text hides
-// and a few IMG widgets show "10.4K", updated only when the step count changes.
-function drawStepsK(native) {
-  const K = L.stepsK
-  const slots = []
-  for (let i = 0; i < 5; i++) {
-    const w = ui.createWidget(W.IMG, { x: 0, y: K.y, src: img('val/k'), show_level: NORMAL })
-    w.setProperty(ui.prop.VISIBLE, false)
-    slots.push(w)
-  }
-  const width = (g) => (g === 'dot' ? K.dot : g === 'k' ? K.k : K.cell)
+// and a second TEXT_IMG widget shows "10.4K", updated only when the 100-step bucket changes.
+function drawStepsK(native, c) {
+  const k = img('val/k')
+  const bigText = valueText(c, undefined, {
+    text: '',
+    dot_image: img('val/dot'),
+    unit_en: k,
+    unit_sc: k,
+    unit_tc: k,
+  })
+  bigText.setProperty(ui.prop.VISIBLE, false)
   const step = new Step()
-  let shown = -1
+  let shown = 0
   const update = () => {
     const n = step.getCurrent()
-    console.log('steps ' + n)
-    const big = n >= K.from
-    const key = big ? Math.floor(n / 100) : 0
+    const key = n >= 10000 ? (n / 100) | 0 : 0
     if (key === shown) return
+    const toggled = !shown !== !key
     shown = key
-    native.setProperty(ui.prop.VISIBLE, !big)
-    const glyphs = big ? stepGlyphs(n) : []
-    let x = Math.round(K.cx - glyphs.reduce((sum, g) => sum + width(g), 0) / 2)
-    slots.forEach((w, i) => {
-      const g = glyphs[i]
-      if (g) {
-        w.setProperty(ui.prop.MORE, { x, y: K.y, w: width(g), h: K.h, src: img('val/' + g) })
-        x += width(g)
-      }
-      w.setProperty(ui.prop.VISIBLE, !!g)
-    })
+    if (toggled) {
+      native.setProperty(ui.prop.VISIBLE, !key)
+      bigText.setProperty(ui.prop.VISIBLE, !!key)
+    }
+    if (key) {
+      const text = key >= 1000 ? '' + ((key / 10) | 0) : ((key / 10) | 0) + '.' + (key % 10)
+      bigText.setProperty(ui.prop.TEXT, text)
+    }
   }
   update()
   step.onChange(update)
@@ -266,88 +269,36 @@ function drawSteps() {
   const c = L.corner.steps
   ui.createWidget(W.IMG, { x: c.ix, y: c.iy, src: img('icon/steps'), show_level: NORMAL })
   const native = valueText(c, DT.STEP)
-  stopSteps = drawStepsK(native)
+  stopSteps = drawStepsK(native, c)
   ui.createWidget(W.IMG_LEVEL, {
     x: c.bx,
     y: c.by,
-    image_array: seq('bar/', L.stepBarLevels),
-    image_length: L.stepBarLevels,
+    image_array: seq('bar/', STEP_BAR_LEVELS),
+    image_length: STEP_BAR_LEVELS,
     type: DT.STEP,
     show_level: NORMAL,
   })
 }
 
-function drawBattery() {
+function drawBattery(aod) {
   const c = L.corner.bat
-  const pct = img('val/pct')
-  const icons = L.batteryIcons.map(img)
+  const level = aod ? AOD : NORMAL
+  const pct = img(aod ? 'val/apct' : 'val/pct')
+  const icons = repeatIcons(aod ? BAT_AOD_SPEC : BAT_SPEC)
   ui.createWidget(W.IMG_LEVEL, {
     x: c.ix,
     y: c.iy,
     image_array: icons,
     image_length: icons.length,
     type: DT.BATTERY,
-    show_level: NORMAL,
+    show_level: level,
   })
-  valueText(c, DT.BATTERY, { unit_en: pct, unit_sc: pct, unit_tc: pct })
-}
-
-function drawBatteryAod() {
-  const c = L.corner.bat
-  const pct = img('val/apct')
-  const icons = L.batteryIconsAod.map(img)
-  ui.createWidget(W.IMG_LEVEL, {
-    x: c.ix,
-    y: c.iy,
-    image_array: icons,
-    image_length: icons.length,
-    type: DT.BATTERY,
-    show_level: AOD,
-  })
-  ui.createWidget(W.TEXT_IMG, {
-    x: c.vx,
-    y: c.vy,
-    w: c.vw,
-    h: c.vh,
-    font_array: seq('val/a', 10),
-    h_space: 0,
-    align_h: A.CENTER_H,
-    type: DT.BATTERY,
+  valueText(c, DT.BATTERY, {
+    font_array: aod ? seq('val/a', 10) : getValFont(),
     unit_en: pct,
     unit_sc: pct,
     unit_tc: pct,
-    show_level: AOD,
-  })
-}
-
-function drawTimeAod() {
-  const t = L.time
-  const digits = seq('time/a', 10)
-  ui.createWidget(W.IMG_TIME, {
-    hour_startX: t.hx,
-    hour_startY: t.hy,
-    hour_array: digits,
-    hour_zero: 1,
-    hour_space: 0,
-    hour_align: A.LEFT,
-    minute_startX: t.mx,
-    minute_startY: t.my,
-    minute_array: digits,
-    minute_zero: 1,
-    minute_space: 0,
-    minute_align: A.LEFT,
-    minute_follow: 0,
-    am_x: t.ax,
-    am_y: t.ay,
-    am_en_path: img('time/am'),
-    am_sc_path: img('time/am'),
-    am_tc_path: img('time/am'),
-    pm_x: t.ax,
-    pm_y: t.ay,
-    pm_en_path: img('time/pm'),
-    pm_sc_path: img('time/pm'),
-    pm_tc_path: img('time/pm'),
-    show_level: AOD,
+    show_level: level,
   })
 }
 
@@ -372,16 +323,16 @@ WatchFace({
     const steps = editGroup('steps', ET.STEP, [{ type: ET.STEP, key: 'on' }, OFF_OPTION])
 
     // Always-on display: dim outline time, date and battery only.
-    drawTimeAod()
+    drawTime(OUTLINE, true)
     if (date !== OFF) drawDate(true)
-    if (bat !== OFF) drawBatteryAod()
+    if (bat !== OFF) drawBattery(true)
 
     // Active display.
-    drawTime(style)
+    drawTime(style, false)
     if (date !== OFF) drawDate(false)
     if (weather !== OFF) drawWeather(weather === WX_FULL)
     if (cal !== OFF) drawCalorie()
-    if (bat !== OFF) drawBattery()
+    if (bat !== OFF) drawBattery(false)
     if (hr !== OFF) drawHeart()
     if (steps !== OFF) drawSteps()
 

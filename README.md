@@ -57,7 +57,7 @@ No simulator or watch was available, so only `zeus build` and the preview render
 
 - **Weather icons:** The mapping uses Zepp condition IDs 0-28 (`WEATHER_MAP` in the generator).
 - **Battery fill:** `IMG_LEVEL` must pick image `floor(percent × 40 / 100)`. If the OS rounds differently, the fill can be off by a quarter near thresholds.
-- **10K+ steps:** `IMG` widgets must accept `setProperty(prop.MORE, { src, x, w, h })`. The `Step` sensor also needs `data:user.hd.step`, which `app.json` already declares.
+- **10K+ steps:** `TEXT_IMG` must accept `dot_image`, `unit_en`, and `setProperty(prop.TEXT, text)`. The `Step` sensor also needs `data:user.hd.step`, which `app.json` already declares.
 - **Do Not Disturb:** The overlay works only if your watch enables DND during sleep.
 - **Step goal bar:** `IMG_LEVEL` with `type: STEP` must scale to your goal.
 - **Titles:** Edit-mode option titles exist only in English, Simplified Chinese, and Traditional Chinese.

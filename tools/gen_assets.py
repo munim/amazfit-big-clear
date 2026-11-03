@@ -8,6 +8,7 @@ every sprite is rendered at native size and no resampling happens on device.
 Usage: python3 tools/gen_assets.py
 Needs: fontTools, Pillow, numpy, rsvg-convert (brew install librsvg).
 """
+from concurrent.futures import ProcessPoolExecutor
 import json
 import math
 import shutil
@@ -268,7 +269,6 @@ def build(target, W, qualifier):
     lay["time"] = {
         "hx": x0, "hy": round(b1 - tref.baseline),
         "mx": x0, "my": round(b2 - tref.baseline),
-        "cell": cell,
     }
     time_box_top = b1 - 0.69 * tsize
     time_box_bot = b2
@@ -289,12 +289,10 @@ def build(target, W, qualifier):
         canvas.alpha_composite(lbl.img, ((w - lbl.w) // 2, round(base_y - lbl.baseline)))
         put("time/%s" % tag.lower(), Sprite(canvas, 0))
     am = files["time/am"]
-    pm = files["time/pm"]
-    box_h = 1.9 * tsize
     t0 = W / 2 - 0.895 * tsize
     ay = round(t0 + 32.2 * cq - am.h / 2)
     ax = x0 + 2 * cell + round(1.2 * cq)
-    lay["time"].update({"ax": ax, "ay": ay, "aw": max(am.w, pm.w), "ah": am.h})
+    lay["time"].update({"ax": ax, "ay": ay})
 
     # ── corner value font (5.2cqw) ──
     vsize = 7.2 * cq
@@ -318,7 +316,8 @@ def build(target, W, qualifier):
     for name in ("flame", "heart", "steps"):
         put("icon/%s" % name, icon_sprite(name, isz_c, DIM))
     for fill in (0, 25, 50, 75, 100):
-        put("icon/bat%d" % fill, battery_icon_sprite(isz_c, DIM, fill))
+        if fill > 0:
+            put("icon/bat%d" % fill, battery_icon_sprite(isz_c, DIM, fill))
         put("icon/bata%d" % fill, battery_icon_sprite(isz_c, AOD_DIM, fill))
         if fill <= 25:
             put("icon/batw%d" % fill, battery_icon_sprite(isz_c, WARN, fill))
@@ -340,6 +339,7 @@ def build(target, W, qualifier):
     gap_c = 0.8 * cq  # icon-to-value gap
     line_v = 1.05 * vsize
     corners = {}
+    corner_cx = {}
     for key, sx, sy, has_bar in (("cal", -1, -1, False), ("bat", 1, -1, False),
                                  ("hr", -1, 1, False), ("steps", 1, 1, True)):
         cx = W / 2 + sx * 33 * cq
@@ -348,18 +348,16 @@ def build(target, W, qualifier):
         top = cy - block_h / 2
         base = top + isz_c + gap_c + 0.815 * vsize
         vw = 6 * vcell
+        corner_cx[key] = round(cx)
         c = {
-            "cx": round(cx),
             "ix": round(cx - files["icon/flame"].w / 2), "iy": round(top),
             "vx": round(cx - vw / 2), "vy": round(base - vref.baseline), "vw": vw, "vh": vref.h,
         }
         if has_bar:
             c.update({"bx": round(cx - bar_w / 2),
-                      "by": round(top + isz_c + gap_c + line_v + gap_c), "bw": bar_w, "bh": bar_h})
+                      "by": round(top + isz_c + gap_c + line_v + gap_c)})
         corners[key] = c
     lay["corner"] = corners
-    lay["stepsK"] = {"cell": vcell, "dot": dot_cell, "k": k_cell, "cx": corners["steps"]["cx"],
-                     "y": corners["steps"]["vy"], "h": vref.h, "from": STEPS_K_FROM}
 
     # ── weather (top) ──
     wsize = 7.5 * cq
@@ -427,7 +425,7 @@ def build(target, W, qualifier):
     def word_w(word):
         return sum(FONT.glyph(c)["adv"] * dk + dtrack for c in word)
 
-    wk_cell = math.ceil(max(word_w(w_) for w_ in WEEKDAYS)) + gap_d
+    wk_cell = math.ceil(max(word_w(w_) for w_ in WEEKDAYS))
     mo_cell = math.ceil(max(word_w(m_) for m_ in MONTHS))
     day_cell = 2 * dcell
     for tag, color in (("", FG), ("a", AOD_FG)):
@@ -443,11 +441,11 @@ def build(target, W, qualifier):
     dref = files["date/wk0"]
     d_top = W / 2 + 40 * cq - 0.6 * dsize
     d_base = d_top + 0.89 * dsize
-    d_total = wk_cell + day_cell + gap_d + mo_cell
+    d_total = wk_cell + gap_d + day_cell + gap_d + mo_cell
     dx0 = W / 2 - d_total / 2
     dy = round(d_base - dref.baseline)
-    lay["date"] = {"wx": round(dx0), "dx": round(dx0 + wk_cell), "mx": round(dx0 + wk_cell + day_cell + gap_d),
-                   "y": dy, "h": dref.h, "w": d_total}
+    lay["date"] = {"wx": round(dx0), "dx": round(dx0 + wk_cell + gap_d),
+                   "mx": round(dx0 + wk_cell + gap_d + day_cell + gap_d), "y": dy}
 
     # ── masks for Do Not Disturb / sleep ──
     # (group boxes double as mask regions)
@@ -459,10 +457,10 @@ def build(target, W, qualifier):
         "time": box(W / 2, (time_box_top + time_box_bot) / 2, 2 * cell, time_h),
         "wx": box(W / 2, (wx_top + wx_bot) / 2, 34 * cq, 14 * cq),
         "date": box(W / 2, W / 2 + 40 * cq, 44 * cq, 9.5 * cq),
-        "cal": box(corners["cal"]["cx"] + 0.5 * cq, W / 2 - 16 * cq, 20 * cq, 20 * cq),
-        "bat": box(corners["bat"]["cx"] - 0.5 * cq, W / 2 - 16 * cq, 20 * cq, 20 * cq),
-        "hr": box(corners["hr"]["cx"] + 0.5 * cq, W / 2 + 16 * cq, 20 * cq, 20 * cq),
-        "steps": box(corners["steps"]["cx"] - 0.5 * cq, W / 2 + 16 * cq, 20 * cq, 20 * cq),
+        "cal": box(corner_cx["cal"] + 0.5 * cq, W / 2 - 16 * cq, 20 * cq, 20 * cq),
+        "bat": box(corner_cx["bat"] - 0.5 * cq, W / 2 - 16 * cq, 20 * cq, 20 * cq),
+        "hr": box(corner_cx["hr"] + 0.5 * cq, W / 2 + 16 * cq, 20 * cq, 20 * cq),
+        "steps": box(corner_cx["steps"] - 0.5 * cq, W / 2 + 16 * cq, 20 * cq, 20 * cq),
     }
     tip_w, tip_h = round(124 * s), round(32 * s)
     for i, (name, g) in enumerate(groups.items()):
@@ -470,21 +468,27 @@ def build(target, W, qualifier):
         above = g["y"] > W * 0.55
         g["tx"] = round((g["w"] - tip_w) / 2)
         g["ty"] = -tip_h - 6 if above else g["h"] + 6
-        g["name"] = name
     lay["groups"] = groups
     lay["tipW"] = tip_w
-    lay["ampmMask"] = {"x": ax, "y": ay, "w": am.w, "h": am.h}
+    lay["ampmMask"] = {"x": ax, "y": ay}
 
-    for name, g in groups.items():
+    for name in ("time", "wx", "date"):
+        g = groups[name]
         alpha = 178 if name == "time" else 255
         put("mask/%s" % name, solid_sprite(g["w"], g["h"], (0, 0, 0, alpha)))
+    cg = groups["cal"]
+    put("mask/corner", solid_sprite(cg["w"], cg["h"], (0, 0, 0, 255)))
     put("mask/ampm", solid_sprite(am.w, am.h, (0, 0, 0, 178)))
 
     # ── edit mode assets ──
-    for name, g in groups.items():
-        r = 12 * s
-        put("edit/sel_%s" % name, rounded_rect_sprite(g["w"], g["h"], r, stroke=FG, sw=max(2, round(2 * s))))
-        put("edit/un_%s" % name, rounded_rect_sprite(g["w"], g["h"], r, stroke=TRACK, sw=max(2, round(2 * s))))
+    r = 12 * s
+    sw = max(2, round(2 * s))
+    for name in ("time", "wx", "date"):
+        g = groups[name]
+        put("edit/sel_%s" % name, rounded_rect_sprite(g["w"], g["h"], r, stroke=FG, sw=sw))
+        put("edit/un_%s" % name, rounded_rect_sprite(g["w"], g["h"], r, stroke=TRACK, sw=sw))
+    put("edit/sel_corner", rounded_rect_sprite(cg["w"], cg["h"], r, stroke=FG, sw=sw))
+    put("edit/un_corner", rounded_rect_sprite(cg["w"], cg["h"], r, stroke=TRACK, sw=sw))
     put("edit/tips", rounded_rect_sprite(tip_w, tip_h, tip_h / 2, fill=TRACK))
     for nm, alpha in (("mask100", 1.0), ("mask70", 0.7)):
         mask = Image.new("RGBA", (W, W), (0, 0, 0, round(255 * alpha)))
@@ -494,15 +498,9 @@ def build(target, W, qualifier):
         arr[~inside] = (0, 0, 0, 0)
         put("edit/%s" % nm, Sprite(Image.fromarray(arr), 0))
 
-    # ── weather condition level array is built in JS from names; export the mapping ──
-    lay["weatherIcons"] = [WEATHER_MAP[i] for i in range(29)]
-    lay["stepBarLevels"] = STEP_BAR_LEVELS
-    lay["batteryIcons"] = [battery_name(i * 100 / BATTERY_LEVELS) for i in range(BATTERY_LEVELS)]
-    lay["batteryIconsAod"] = [battery_name(i * 100 / BATTERY_LEVELS, True) for i in range(BATTERY_LEVELS)]
-
     # ── scene simulator (preview + edit previews) ──
     def scene(mode="active", style="solid", wx="full", date=True, corners_on=("cal", "bat", "hr", "steps"),
-              hour24=False, steps=None):
+              hour24=False, steps=None, show_time=True):
         steps = SAMPLE["steps"] if steps is None else steps
         canvas = Image.new("RGBA", (W, W), (0, 0, 0, 255))
 
@@ -519,16 +517,17 @@ def build(target, W, qualifier):
 
         aod = mode == "aod"
         t = lay["time"]
-        pre = "a" if aod else ("o" if style == "outline" else "s")
-        hh = SAMPLE["hour"] if hour24 else (SAMPLE["hour"] % 12 or 12)
-        hs = "%02d" % hh
-        paste("time/%s%s" % (pre, hs[0]), t["hx"], t["hy"])
-        paste("time/%s%s" % (pre, hs[1]), t["hx"] + cell, t["hy"])
-        ms = "%02d" % SAMPLE["minute"]
-        paste("time/%s%s" % (pre, ms[0]), t["mx"], t["my"])
-        paste("time/%s%s" % (pre, ms[1]), t["mx"] + cell, t["my"])
-        if not hour24:
-            paste("time/am" if SAMPLE["hour"] < 12 else "time/pm", t["ax"], t["ay"])
+        if show_time:
+            pre = "a" if aod else ("o" if style == "outline" else "s")
+            hh = SAMPLE["hour"] if hour24 else (SAMPLE["hour"] % 12 or 12)
+            hs = "%02d" % hh
+            paste("time/%s%s" % (pre, hs[0]), t["hx"], t["hy"])
+            paste("time/%s%s" % (pre, hs[1]), t["hx"] + cell, t["hy"])
+            ms = "%02d" % SAMPLE["minute"]
+            paste("time/%s%s" % (pre, ms[0]), t["mx"], t["my"])
+            paste("time/%s%s" % (pre, ms[1]), t["mx"] + cell, t["my"])
+            if not hour24:
+                paste("time/am" if SAMPLE["hour"] < 12 else "time/pm", t["ax"], t["ay"])
         if date:
             d = lay["date"]
             p = "a" if aod else ""
@@ -564,11 +563,10 @@ def build(target, W, qualifier):
             if key == "steps":
                 lvl = round(min(1, steps / SAMPLE["goal"]) * (STEP_BAR_LEVELS - 1))
                 paste("bar/%d" % lvl, c["bx"], c["by"])
-        if "bat" in corners_on:
-            pass
         if mode == "dnd":
             for name, g in groups.items():
-                paste("mask/%s" % name, g["x"], g["y"])
+                mask_name = name if name in ("time", "wx", "date") else "corner"
+                paste("mask/%s" % mask_name, g["x"], g["y"])
             paste("mask/ampm", t["ax"], t["ay"])
         return canvas
 
@@ -583,29 +581,27 @@ def build(target, W, qualifier):
     def crop(im, g):
         return im.crop((g["x"], g["y"], g["x"] + g["w"], g["y"] + g["h"]))
 
-    def off_preview(g):
-        lbl = text_sprite("OFF", 6.6 * cq, DIM, "OFF", tracking=0.08 * 6.6 * cq)
-        base = Image.new("RGBA", (g["w"], g["h"]), (0, 0, 0, 255))
-        base.alpha_composite(lbl.img, ((g["w"] - lbl.w) // 2, (g["h"] - lbl.h) // 2))
-        return Sprite(base, 0)
+    off_lbl = text_sprite("OFF", 6.6 * cq, DIM, "OFF", tracking=0.08 * 6.6 * cq)
 
-    def show_only(**kw):
-        return scene(**kw)
+    def off_preview(g):
+        base = Image.new("RGBA", (g["w"], g["h"]), (0, 0, 0, 255))
+        base.alpha_composite(off_lbl.img, ((g["w"] - off_lbl.w) // 2, (g["h"] - off_lbl.h) // 2))
+        return Sprite(base, 0)
 
     for style in ("solid", "outline"):
         put("edit/pv_time_%s" % style, Sprite(crop(scene(style=style, wx="off", date=False, corners_on=()), groups["time"]), 0))
-    put("edit/pv_wx_full", Sprite(crop(scene(wx="full", date=False, corners_on=()), groups["wx"]), 0))
-    put("edit/pv_wx_temp", Sprite(crop(scene(wx="temp", date=False, corners_on=()), groups["wx"]), 0))
-    put("edit/pv_date_on", Sprite(crop(scene(wx="off", date=True, corners_on=()), groups["date"]), 0))
+    put("edit/pv_wx_full", Sprite(crop(scene(wx="full", date=False, corners_on=(), show_time=False), groups["wx"]), 0))
+    put("edit/pv_wx_temp", Sprite(crop(scene(wx="temp", date=False, corners_on=(), show_time=False), groups["wx"]), 0))
+    put("edit/pv_date_on", Sprite(crop(scene(wx="off", date=True, corners_on=(), show_time=False), groups["date"]), 0))
     for key in ("cal", "bat", "hr", "steps"):
-        put("edit/pv_%s_on" % key, Sprite(crop(scene(wx="off", date=False, corners_on=(key,)), groups[key]), 0))
-    for name in ("wx", "date", "cal", "bat", "hr", "steps"):
+        put("edit/pv_%s_on" % key, Sprite(crop(scene(wx="off", date=False, corners_on=(key,), show_time=False), groups[key]), 0))
+    for name in ("wx", "date"):
         put("edit/pv_%s_off" % name, off_preview(groups[name]))
+    put("edit/pv_corner_off", off_preview(cg))
 
     # store preview + app icon
     put_prev = circular(scene(mode="active"))
     put_prev.save(out / "preview.png")
-    Image.open(out / "preview.png")
     docs = ROOT / "docs"
     docs.mkdir(exist_ok=True)
     put_prev.save(docs / ("preview-active-%d.png" % W))
@@ -623,6 +619,11 @@ def build(target, W, qualifier):
     print("%s %dpx: %d sprites, time cell %d, date %dpx wide" % (target, W, n_files, cell, d_total))
 
 
+def _build_target(item):
+    tgt, (w_, q_) = item
+    build(tgt, w_, q_)
+
+
 if __name__ == "__main__":
-    for tgt, (w_, q_) in TARGETS.items():
-        build(tgt, w_, q_)
+    with ProcessPoolExecutor(max_workers=len(TARGETS)) as pool:
+        list(pool.map(_build_target, TARGETS.items()))
