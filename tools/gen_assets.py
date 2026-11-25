@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate every sprite, edit-mode image and layout file for the face.
 
-Geometry follows amazfit-face-round-v2.html (Oxanium, 36cqw time, four corner
-data points, weather on top, date at the bottom). One build per resolution so
-every sprite is rendered at native size and no resampling happens on device.
+Geometry uses Oxanium, 36cqw stacked time, battery on top (below the Zepp OS
+notification zone), date at the bottom, and four corner data points (calories,
+weather, heart rate, steps). One build per resolution so every sprite is
+rendered at native size and no resampling happens on device.
 
 Usage: python3 tools/gen_assets.py
 Needs: fontTools, Pillow, numpy, rsvg-convert (brew install librsvg).
@@ -294,22 +295,22 @@ def build(target, W, qualifier):
     ax = x0 + 2 * cell + round(1.2 * cq)
     lay["time"].update({"ax": ax, "ay": ay})
 
-    # ── corner value font (5.2cqw) ──
+    # ── corner value font (7.2cqw) ──
     vsize = 7.2 * cq
     vk = vsize / FONT.upm
     vcell = math.ceil(FONT.glyph("0")["adv"] * vk)
-    vchars = digits + "%-K"
+    vchars = digits + "-K°."
     for d in digits:
         put("val/%s" % d, text_sprite(d, vsize, FG, vchars, cell_w=vcell))
-        put("val/a%s" % d, text_sprite(d, vsize, AOD_FG, vchars, cell_w=vcell))
-    pct_cell = math.ceil(FONT.glyph("%")["adv"] * vk)
-    put("val/pct", text_sprite("%", vsize, FG, vchars, cell_w=pct_cell))
-    put("val/apct", text_sprite("%", vsize, AOD_FG, vchars, cell_w=pct_cell))
     put("val/inv", text_sprite("--", vsize, FG, vchars, tracking=0.04 * vsize))
     dot_cell = math.ceil(FONT.glyph(".")["adv"] * vk)
     k_cell = math.ceil(FONT.glyph("K")["adv"] * vk)
+    deg_cell = math.ceil(FONT.glyph("°")["adv"] * vk)
+    neg_cell = math.ceil(FONT.glyph("-")["adv"] * vk)
     put("val/dot", text_sprite(".", vsize, FG, vchars, cell_w=dot_cell))
     put("val/k", text_sprite("K", vsize, FG, vchars, cell_w=k_cell))
+    put("val/deg", text_sprite("°", vsize, FG, vchars, cell_w=deg_cell))
+    put("val/neg", text_sprite("-", vsize, FG, vchars, cell_w=neg_cell))
     vref = files["val/0"]
 
     isz_c = 7 * cq
@@ -340,7 +341,7 @@ def build(target, W, qualifier):
     line_v = 1.05 * vsize
     corners = {}
     corner_cx = {}
-    for key, sx, sy, has_bar in (("cal", -1, -1, False), ("bat", 1, -1, False),
+    for key, sx, sy, has_bar in (("cal", -1, -1, False),
                                  ("hr", -1, 1, False), ("steps", 1, 1, True)):
         cx = W / 2 + sx * 33 * cq
         cy = W / 2 + sy * 17 * cq
@@ -357,62 +358,67 @@ def build(target, W, qualifier):
             c.update({"bx": round(cx - bar_w / 2),
                       "by": round(top + isz_c + gap_c + line_v + gap_c)})
         corners[key] = c
-    lay["corner"] = corners
 
-    # ── weather (top) ──
-    wsize = 7.5 * cq
-    wk = wsize / FONT.upm
-    wcell = math.ceil(FONT.glyph("0")["adv"] * wk)
-    wchars = digits + "°-"
-    for d in digits:
-        put("wx/t%s" % d, text_sprite(d, wsize, FG, wchars, cell_w=wcell))
-    put("wx/deg", text_sprite("°", wsize, FG, wchars, cell_w=math.ceil(FONT.glyph("°")["adv"] * wk)))
-    put("wx/neg", text_sprite("-", wsize, FG, wchars, cell_w=math.ceil(FONT.glyph("-")["adv"] * wk)))
-    put("wx/inv", text_sprite("--", wsize, FG, wchars, tracking=0.04 * wsize))
-    hsize = 4.8 * cq
+    # ── weather (top-right corner, 3-row stack) ──
+    hsize = 4.2 * cq
     hk = hsize / FONT.upm
     hcell = math.ceil(FONT.glyph("0")["adv"] * hk)
-    hchars = digits + "-"
+    hchars = digits + "/-"
     for d in digits:
         put("wx/h%s" % d, text_sprite(d, hsize, DIM, hchars, cell_w=hcell))
     put("wx/hneg", text_sprite("-", hsize, DIM, hchars, cell_w=math.ceil(FONT.glyph("-")["adv"] * hk)))
     put("wx/hinv", text_sprite("--", hsize, DIM, hchars, tracking=0.04 * hsize))
-    wref = files["wx/t0"]
+    put("wx/slash", text_sprite("/", hsize, DIM, hchars, cell_w=math.ceil(FONT.glyph("/")["adv"] * hk)))
     href = files["wx/h0"]
-    wicon = 6.5 * cq
+    slash = files["wx/slash"]
     names = sorted(set(WEATHER_MAP.values()))
     for n in names:
-        put("wx/i_%s" % n, icon_sprite(n, wicon, DIM))
-    arrow = 4.2 * cq
-    put("wx/up", icon_sprite("up", arrow, DIM))
-    put("wx/down", icon_sprite("down", arrow, DIM))
-    iw = files["wx/i_cloud"].w
-    h1 = wsize
-    h2 = hsize
-    wgap = 0.5 * cq
-    wblock = h1 + wgap + h2
-    wtop = W / 2 - 38.5 * cq - wblock / 2
-    nominal_t = 2 * wcell + math.ceil(FONT.glyph("°")["adv"] * wk)
-    line1_w = iw + round(0.8 * cq) + nominal_t
-    l1x = W / 2 - line1_w / 2
-    tbase = wtop + 0.79 * wsize
-    line2_top = wtop + h1 + wgap
-    hbase = line2_top + 0.79 * hsize
-    ar = files["wx/up"].w
-    ig = round(0.4 * cq)
-    group_w = ar + ig + 2 * hcell
-    pair_gap = round(0.8 * cq)
-    l2x = W / 2 - (2 * group_w + pair_gap) / 2
-    lay["wx"] = {
-        "ix": round(l1x), "iy": round(wtop + h1 / 2 - files["wx/i_cloud"].h / 2),
-        "tx": round(l1x + iw + 0.8 * cq), "ty": round(tbase - wref.baseline), "tw": 5 * wcell, "th": wref.h,
-        "uix": round(l2x), "uiy": round(line2_top + h2 / 2 - ar / 2),
-        "ux": round(l2x + ar + ig), "uy": round(hbase - href.baseline), "uw": 3 * hcell, "uh": href.h,
-        "dix": round(l2x + group_w + pair_gap), "diy": round(line2_top + h2 / 2 - ar / 2),
-        "dx": round(l2x + group_w + pair_gap + ar + ig), "dy": round(hbase - href.baseline),
-        "dw": 3 * hcell, "dh": href.h,
+        put("wx/i_%s" % n, icon_sprite(n, isz_c, DIM))
+
+    wx_cx = W / 2 + 33 * cq
+    corner_cx["wx"] = round(wx_cx)
+    gap_wx = 0.7 * cq
+    block_wx = isz_c + gap_wx + 0.815 * vsize + gap_wx + 0.815 * hsize
+    wtop = (W / 2 - 16 * cq) - block_wx / 2
+    w_base_t = wtop + isz_c + gap_wx + 0.815 * vsize
+    w_base_h = w_base_t + gap_wx + 0.815 * hsize
+    w_hy = round(w_base_h - href.baseline)
+    w_vw = 6 * vcell
+    pad_s = round(0.4 * cq)
+    sx_slash = round(wx_cx - slash.w / 2)
+    hw = 4 * hcell
+    corners["wx"] = {
+        "ix": round(wx_cx - files["wx/i_cloud"].w / 2), "iy": round(wtop),
+        "vx": round(wx_cx - w_vw / 2), "vy": round(w_base_t - vref.baseline), "vw": w_vw, "vh": vref.h,
+        "sx": sx_slash, "sy": w_hy,
+        "ux": sx_slash - pad_s - hw, "uy": w_hy, "uw": hw, "uh": href.h,
+        "dx": sx_slash + slash.w + pad_s, "dy": w_hy, "dw": hw, "dh": href.h,
     }
-    wx_top, wx_bot = wtop, wtop + wblock
+    lay["corner"] = corners
+
+    # ── battery (top-center, below Zepp OS notification zone) ──
+    bsize = 6.6 * cq
+    bk = bsize / FONT.upm
+    bcell = math.ceil(FONT.glyph("0")["adv"] * bk)
+    bpct_cell = math.ceil(FONT.glyph("%")["adv"] * bk)
+    bchars = digits + "%"
+    for tag, color in (("", FG), ("a", AOD_FG)):
+        for d in digits:
+            put("bat/%s%s" % (tag, d), text_sprite(d, bsize, color, bchars, cell_w=bcell))
+        put("bat/%spct" % tag, text_sprite("%", bsize, color, bchars, cell_w=bpct_cell))
+    bref = files["bat/0"]
+    bpct = files["bat/pct"]
+    bicon = files["icon/bat100"]
+    bb = bref.img.getbbox()
+    bat_cy = 13.7 * cq
+    b_vy = round(bat_cy - (bb[1] + bb[3]) / 2.0)
+    b_iy = round(bat_cy - bicon.h / 2.0)
+    bgap = round(1.2 * cq)
+    b_ix = round(W / 2 - (bicon.w + bgap + 2 * bcell + bpct.w) / 2)
+    lay["bat"] = {
+        "ix": b_ix, "iy": b_iy,
+        "vx": b_ix + bicon.w + bgap, "vy": b_vy, "vw": 3 * bcell + bpct.w, "vh": bref.h,
+    }
 
     # ── date (bottom) ──
     dsize = 6.6 * cq
@@ -455,10 +461,10 @@ def build(target, W, qualifier):
     time_h = (time_box_bot - time_box_top) + 16 * s
     groups = {
         "time": box(W / 2, (time_box_top + time_box_bot) / 2, 2 * cell, time_h),
-        "wx": box(W / 2, (wx_top + wx_bot) / 2, 34 * cq, 14 * cq),
+        "wx": box(corner_cx["wx"] - 0.5 * cq, W / 2 - 16 * cq, 20 * cq, 20 * cq),
         "date": box(W / 2, W / 2 + 40 * cq, 44 * cq, 9.5 * cq),
         "cal": box(corner_cx["cal"] + 0.5 * cq, W / 2 - 16 * cq, 20 * cq, 20 * cq),
-        "bat": box(corner_cx["bat"] - 0.5 * cq, W / 2 - 16 * cq, 20 * cq, 20 * cq),
+        "bat": box(W / 2, bat_cy, 33 * cq, 7.6 * cq),
         "hr": box(corner_cx["hr"] + 0.5 * cq, W / 2 + 16 * cq, 20 * cq, 20 * cq),
         "steps": box(corner_cx["steps"] - 0.5 * cq, W / 2 + 16 * cq, 20 * cq, 20 * cq),
     }
@@ -472,7 +478,7 @@ def build(target, W, qualifier):
     lay["tipW"] = tip_w
     lay["ampmMask"] = {"x": ax, "y": ay}
 
-    for name in ("time", "wx", "date"):
+    for name in ("time", "bat", "date"):
         g = groups[name]
         alpha = 178 if name == "time" else 255
         put("mask/%s" % name, solid_sprite(g["w"], g["h"], (0, 0, 0, alpha)))
@@ -483,7 +489,7 @@ def build(target, W, qualifier):
     # ── edit mode assets ──
     r = 12 * s
     sw = max(2, round(2 * s))
-    for name in ("time", "wx", "date"):
+    for name in ("time", "bat", "date"):
         g = groups[name]
         put("edit/sel_%s" % name, rounded_rect_sprite(g["w"], g["h"], r, stroke=FG, sw=sw))
         put("edit/un_%s" % name, rounded_rect_sprite(g["w"], g["h"], r, stroke=TRACK, sw=sw))
@@ -499,8 +505,8 @@ def build(target, W, qualifier):
         put("edit/%s" % nm, Sprite(Image.fromarray(arr), 0))
 
     # ── scene simulator (preview + edit previews) ──
-    def scene(mode="active", style="solid", wx="full", date=True, corners_on=("cal", "bat", "hr", "steps"),
-              hour24=False, steps=None, show_time=True):
+    def scene(mode="active", style="solid", wx="full", date=True, bat=True,
+              corners_on=("cal", "hr", "steps"), hour24=False, steps=None, show_time=True):
         steps = SAMPLE["steps"] if steps is None else steps
         canvas = Image.new("RGBA", (W, W), (0, 0, 0, 255))
 
@@ -510,7 +516,12 @@ def build(target, W, qualifier):
 
         def text_img(chars_names, x, y, w, align="center"):
             total = sum(files[n].w for n in chars_names)
-            sx = x + (w - total) / 2 if align == "center" else x
+            if align == "center":
+                sx = x + (w - total) / 2
+            elif align == "right":
+                sx = x + w - total
+            else:
+                sx = x
             for n in chars_names:
                 paste(n, sx, y)
                 sx += files[n].w
@@ -534,23 +545,27 @@ def build(target, W, qualifier):
             paste("date/%swk%d" % (p, SAMPLE["weekday"]), d["wx"], d["y"])
             paste("date/%sday%d" % (p, SAMPLE["day"]), d["dx"], d["y"])
             paste("date/%smo%d" % (p, SAMPLE["month"]), d["mx"], d["y"])
-        if "bat" in corners_on:
-            c = corners["bat"]
-            paste(battery_name(SAMPLE["battery"], aod), c["ix"], c["iy"])
+        if bat:
+            b = lay["bat"]
+            paste(battery_name(SAMPLE["battery"], aod), b["ix"], b["iy"])
             pr = "a" if aod else ""
-            text_img(["val/%s%s" % (pr, ch) for ch in str(SAMPLE["battery"])] + ["val/%spct" % pr],
-                     c["vx"], c["vy"], c["vw"])
+            text_img(["bat/%s%s" % (pr, ch) for ch in str(SAMPLE["battery"])] + ["bat/%spct" % pr],
+                     b["vx"], b["vy"], b["vw"], "left")
         if aod:
             return canvas
         if wx != "off":
-            w_ = lay["wx"]
+            w_ = corners["wx"]
             paste("wx/i_%s" % SAMPLE["wx"], w_["ix"], w_["iy"])
-            text_img(["wx/t%s" % ch for ch in str(SAMPLE["temp"])] + ["wx/deg"], w_["tx"], w_["ty"], 0, "left")
+            ts = str(SAMPLE["temp"])
+            t_names = (["val/neg"] if ts.startswith("-") else []) + ["val/%s" % ch for ch in ts.lstrip("-")] + ["val/deg"]
+            text_img(t_names, w_["vx"], w_["vy"], w_["vw"])
             if wx == "full":
-                paste("wx/up", w_["uix"], w_["uiy"])
-                text_img(["wx/h%s" % ch for ch in str(SAMPLE["high"])], w_["ux"], w_["uy"], 0, "left")
-                paste("wx/down", w_["dix"], w_["diy"])
-                text_img(["wx/h%s" % ch for ch in str(SAMPLE["low"])], w_["dx"], w_["dy"], 0, "left")
+                paste("wx/slash", w_["sx"], w_["sy"])
+                hi_s, lo_s = str(SAMPLE["high"]), str(SAMPLE["low"])
+                hi_names = (["wx/hneg"] if hi_s.startswith("-") else []) + ["wx/h%s" % ch for ch in hi_s.lstrip("-")]
+                lo_names = (["wx/hneg"] if lo_s.startswith("-") else []) + ["wx/h%s" % ch for ch in lo_s.lstrip("-")]
+                text_img(hi_names, w_["ux"], w_["uy"], w_["uw"], "right")
+                text_img(lo_names, w_["dx"], w_["dy"], w_["dw"], "left")
         for key, icon, val in (("cal", "flame", SAMPLE["kcal"]), ("hr", "heart", SAMPLE["hr"]),
                                ("steps", "steps", steps)):
             if key not in corners_on:
@@ -565,7 +580,7 @@ def build(target, W, qualifier):
                 paste("bar/%d" % lvl, c["bx"], c["by"])
         if mode == "dnd":
             for name, g in groups.items():
-                mask_name = name if name in ("time", "wx", "date") else "corner"
+                mask_name = name if name in ("time", "bat", "date") else "corner"
                 paste("mask/%s" % mask_name, g["x"], g["y"])
             paste("mask/ampm", t["ax"], t["ay"])
         return canvas
@@ -589,13 +604,14 @@ def build(target, W, qualifier):
         return Sprite(base, 0)
 
     for style in ("solid", "outline"):
-        put("edit/pv_time_%s" % style, Sprite(crop(scene(style=style, wx="off", date=False, corners_on=()), groups["time"]), 0))
-    put("edit/pv_wx_full", Sprite(crop(scene(wx="full", date=False, corners_on=(), show_time=False), groups["wx"]), 0))
-    put("edit/pv_wx_temp", Sprite(crop(scene(wx="temp", date=False, corners_on=(), show_time=False), groups["wx"]), 0))
-    put("edit/pv_date_on", Sprite(crop(scene(wx="off", date=True, corners_on=(), show_time=False), groups["date"]), 0))
-    for key in ("cal", "bat", "hr", "steps"):
-        put("edit/pv_%s_on" % key, Sprite(crop(scene(wx="off", date=False, corners_on=(key,), show_time=False), groups[key]), 0))
-    for name in ("wx", "date"):
+        put("edit/pv_time_%s" % style, Sprite(crop(scene(style=style, wx="off", date=False, bat=False, corners_on=()), groups["time"]), 0))
+    put("edit/pv_wx_full", Sprite(crop(scene(wx="full", date=False, bat=False, corners_on=(), show_time=False), groups["wx"]), 0))
+    put("edit/pv_wx_temp", Sprite(crop(scene(wx="temp", date=False, bat=False, corners_on=(), show_time=False), groups["wx"]), 0))
+    put("edit/pv_date_on", Sprite(crop(scene(wx="off", date=True, bat=False, corners_on=(), show_time=False), groups["date"]), 0))
+    put("edit/pv_bat_on", Sprite(crop(scene(wx="off", date=False, bat=True, corners_on=(), show_time=False), groups["bat"]), 0))
+    for key in ("cal", "hr", "steps"):
+        put("edit/pv_%s_on" % key, Sprite(crop(scene(wx="off", date=False, bat=False, corners_on=(key,), show_time=False), groups[key]), 0))
+    for name in ("bat", "date"):
         put("edit/pv_%s_off" % name, off_preview(groups[name]))
     put("edit/pv_corner_off", off_preview(cg))
 

@@ -175,7 +175,7 @@ function drawDate(aod) {
 }
 
 function drawWeather(full) {
-  const w = L.wx
+  const w = L.corner.wx
   const icons = WEATHER_ICONS.map((n) => img('wx/i_' + n))
   ui.createWidget(W.IMG_LEVEL, {
     x: w.ix,
@@ -185,35 +185,26 @@ function drawWeather(full) {
     type: DT.WEATHER,
     show_level: NORMAL,
   })
-  const deg = img('wx/deg')
-  textImg({
-    x: w.tx,
-    y: w.ty,
-    w: w.tw,
-    h: w.th,
-    font_array: seq('wx/t', 10),
-    align_h: A.LEFT,
-    type: DT.WEATHER_CURRENT,
+  const deg = img('val/deg')
+  valueText(w, DT.WEATHER_CURRENT, {
     unit_en: deg,
     unit_sc: deg,
     unit_tc: deg,
     imperial_unit_en: deg,
     imperial_unit_sc: deg,
     imperial_unit_tc: deg,
-    negative_image: img('wx/neg'),
-    invalid_image: img('wx/inv'),
+    negative_image: img('val/neg'),
+    invalid_image: img('val/inv'),
   })
   if (!full) return
-  ui.createWidget(W.IMG, { x: w.uix, y: w.uiy, src: img('wx/up'), show_level: NORMAL })
-  ui.createWidget(W.IMG, { x: w.dix, y: w.diy, src: img('wx/down'), show_level: NORMAL })
+  ui.createWidget(W.IMG, { x: w.sx, y: w.sy, src: img('wx/slash'), show_level: NORMAL })
   const small = {
     font_array: seq('wx/h', 10),
-    align_h: A.LEFT,
     negative_image: img('wx/hneg'),
     invalid_image: img('wx/hinv'),
   }
-  textImg(Object.assign({ x: w.ux, y: w.uy, w: w.uw, h: w.uh, type: DT.WEATHER_HIGH }, small))
-  textImg(Object.assign({ x: w.dx, y: w.dy, w: w.dw, h: w.dh, type: DT.WEATHER_LOW }, small))
+  textImg(Object.assign({ x: w.ux, y: w.uy, w: w.uw, h: w.uh, align_h: A.RIGHT, type: DT.WEATHER_HIGH }, small))
+  textImg(Object.assign({ x: w.dx, y: w.dy, w: w.dw, h: w.dh, align_h: A.LEFT, type: DT.WEATHER_LOW }, small))
 }
 
 function drawCalorie() {
@@ -281,20 +272,26 @@ function drawSteps() {
 }
 
 function drawBattery(aod) {
-  const c = L.corner.bat
+  const b = L.bat
   const level = aod ? AOD : NORMAL
-  const pct = img(aod ? 'val/apct' : 'val/pct')
+  const pct = img(aod ? 'bat/apct' : 'bat/pct')
   const icons = repeatIcons(aod ? BAT_AOD_SPEC : BAT_SPEC)
   ui.createWidget(W.IMG_LEVEL, {
-    x: c.ix,
-    y: c.iy,
+    x: b.ix,
+    y: b.iy,
     image_array: icons,
     image_length: icons.length,
     type: DT.BATTERY,
     show_level: level,
   })
-  valueText(c, DT.BATTERY, {
-    font_array: aod ? seq('val/a', 10) : getValFont(),
+  textImg({
+    x: b.vx,
+    y: b.vy,
+    w: b.vw,
+    h: b.vh,
+    font_array: seq(aod ? 'bat/a' : 'bat/', 10),
+    align_h: A.LEFT,
+    type: DT.BATTERY,
     unit_en: pct,
     unit_sc: pct,
     unit_tc: pct,

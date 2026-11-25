@@ -5,12 +5,12 @@
     "appName": "Big & Clear",
     "appType": "watchface",
     "version": {
-      "code": 1,
-      "name": "1.0.0"
+      "code": 2,
+      "name": "1.1.0"
     },
     "icon": "preview.png",
     "vender": "local",
-    "description": "Big stacked time, weather on top, date at the bottom, four corner data points. Declarative widgets only, built for low power."
+    "description": "Big stacked time, battery on top, date at the bottom, four corner data points with weather. Declarative widgets only, built for low power."
   },
   "permissions": ["data:user.hd.step"],
   "runtime": {
