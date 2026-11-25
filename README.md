@@ -11,8 +11,6 @@ Big & Clear is a round face for Zepp OS 3.0+:
 - **466×466:** GTR 4, Active 2 Round, Cheetah 2 Pro, T-Rex 3 Pro 44
 - **480×480:** Balance family, Cheetah Pro
 
-The layout comes from `amazfit-face-round-v2.html`.
-
 ## Why the battery lasts
 
 - **No timers.** The face uses OS-redrawn widgets only. It has no `setInterval` or `setTimeout`.
@@ -24,10 +22,8 @@ The layout comes from `amazfit-face-round-v2.html`.
 
 ## What you see
 
-- Stacked hour and minute time, with AM/PM tag
-- Weather icon, temperature, and high/low
-- Date, calories, battery, heart rate
-- Steps with a goal bar
+- **Center:** Stacked hour and minute time with AM/PM tag, battery below the top notification zone, and date at the bottom
+- **Four corners:** Calories (top-left), weather icon, temperature, and high/low (top-right), heart rate (bottom-left), and steps with a goal bar (bottom-right)
 
 The battery icon fills to the nearest quarter (100, 75, 50, 25, or 0%) and turns amber below 20%. The number always shows the exact value.
 
